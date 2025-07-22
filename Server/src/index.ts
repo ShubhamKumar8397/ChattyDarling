@@ -3,14 +3,16 @@ import dotenv from 'dotenv'
 import { createClient } from "redis";
 
 import connectDB from "./Database/ConnectDB.js"
+import { connectRabbitMQ } from "./Utils/rabbitmq.js";
+import { startSendOtpConsumer } from "./MailService/mail.service.js";
 
 dotenv.config();
 
 const PORT = process.env.PORT || 8000
 
 // redis Client Configure
-const redisClient = createClient({
-  url: process.env.REDIS_URL
+export const redisClient = createClient({
+    url: process.env.REDIS_URL
 });
 
 
@@ -21,10 +23,16 @@ connectDB()
         return redisClient.connect();
     })
     .then((redisConnection) => {
-        if(redisConnection){
+        if (redisConnection) {
             console.log("Redis Connection Established :::: Successfully")
         }
-        
+
+        return connectRabbitMQ();
+    })
+    .then(() => {
+        return startSendOtpConsumer();
+    })
+    .then(() => {
         app.listen(PORT, () => {
             console.log(`Server Is Listening At PORT ${PORT}`)
         })
@@ -32,4 +40,4 @@ connectDB()
     .catch((error) => {
         console.log(error)
     })
-    
+

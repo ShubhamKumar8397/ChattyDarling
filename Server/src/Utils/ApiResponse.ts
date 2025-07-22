@@ -1,11 +1,11 @@
 class ApiResponse{
     public message : string
-    public data : any
+    public data : any = ""
     public statusCode : number
     public success : true
     constructor(
         message : string = "Data Fetched Successfully",
-        data : any,
+        data : any ,
         statusCode : number
     ){
         this.statusCode = statusCode;

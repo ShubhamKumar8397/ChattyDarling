@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 
-
-
 const connectDB = async () => {
     try {
         const dbUsername = process.env.MONGO_DB_USERNAME
