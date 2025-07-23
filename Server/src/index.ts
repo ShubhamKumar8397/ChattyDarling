@@ -3,8 +3,7 @@ import dotenv from 'dotenv'
 import { createClient } from "redis";
 
 import connectDB from "./Database/ConnectDB.js"
-import { connectRabbitMQ } from "./Utils/rabbitmq.js";
-import { startSendOtpConsumer } from "./MailService/mail.service.js";
+import { connectRabbitMQ } from "./MailService/mail.service.js";
 
 dotenv.config();
 
@@ -28,9 +27,7 @@ connectDB()
         }
 
         return connectRabbitMQ();
-    })
-    .then(() => {
-        return startSendOtpConsumer();
+        
     })
     .then(() => {
         app.listen(PORT, () => {

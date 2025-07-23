@@ -1,7 +1,11 @@
-import nodemailer from "nodemailer";
-import amqp from 'amqplib'
 
-export const startSendOtpConsumer = async () => {
+import amqp, {Channel} from 'amqplib'
+import { sendMailByNodemailer } from "./nodemailer.service.js";
+
+
+let channel : Channel
+
+export const connectRabbitMQ = async () => {
     try {
         const connection = await amqp.connect({
             protocol: "amqp",
@@ -11,7 +15,7 @@ export const startSendOtpConsumer = async () => {
             password: process.env.RABBITMQ_PASSWORD
         })
 
-        const channel = await connection.createChannel();
+        channel = await connection.createChannel();
         console.log("RABBIT MQ Consumer Start :::::")
 
         const queueName = 'send-otp';
@@ -20,29 +24,14 @@ export const startSendOtpConsumer = async () => {
             durable: true
         })
 
+
         channel.consume(queueName, async (msg: any) => {
             if (msg) {
                 try {
                     const { to, subject, body } = JSON.parse(msg.content.toString())
 
-                    const transporter = nodemailer.createTransport({
-                        host: "smtp.gmail.com",
-                        port: 587,
-                        secure: false, // true for 465, false for other ports
-                        auth: {
-                            user: process.env.GMAIL_USERNAME,
-                            pass: process.env.GMAIL_PASSWORD,
-                        },
-                    });
+                    await sendMailByNodemailer(to, subject, body);
 
-                    const info = await transporter.sendMail({
-                        from: '"ChattyDarling" <shubhambadsha8401@gmail.com>',
-                        to,
-                        subject,
-                        text: body, // plain‑text body
-                    });
-                    
-                    console.log(`OTP MAIL SEND TO ${to} "`)
                     channel.ack(msg)
                 } catch (error) {
                     console.log("Failed To Send Otp :::: consumer Part", error)
@@ -51,6 +40,22 @@ export const startSendOtpConsumer = async () => {
         })
 
     } catch (error) {
-        console.log("Failed Send OTP ::: Consumer Part",error)
+        console.log("Failed Send OTP ::: Consumer Part", error)
     }
+}
+
+
+export const publishToQueue = async (queueName: string, message: any) => {
+    if (!channel) {
+        console.log("Rabbit MQ Channel Not Initialized")
+    }
+
+    await channel.assertQueue(queueName, {
+        // durable true because any Error Occur Retry
+        durable: true
+    })
+
+    channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
+        persistent: true
+    })
 }

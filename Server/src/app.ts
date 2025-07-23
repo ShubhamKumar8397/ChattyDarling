@@ -1,9 +1,13 @@
 import express from "express";
+import cookieParser from "cookie-parser";
+
 import { errorMiddleware } from "./Middlewares/error.middleware.js";
+
 
 const app = express();
 
 app.use(express.json())
+app.use(cookieParser())
 
 // All Routes Declared Here
 
