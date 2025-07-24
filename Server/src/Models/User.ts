@@ -1,4 +1,4 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
 export enum AuthProvider {
     LOCAL = 'local',
@@ -8,6 +8,7 @@ export enum AuthProvider {
 export type ImageSource = 'local' | 'google';
 
 export interface IUSER extends Document {
+    _id : Types.ObjectId
     name: string;
     email: string;
     password : string;

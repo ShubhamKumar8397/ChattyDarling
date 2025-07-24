@@ -1,5 +1,8 @@
+import {Response,  NextFunction } from "express";
 import { redisClient } from "../index.js";
 import { publishToQueue } from "../MailService/mail.service.js";
+import { AuthenticatedRequest } from "../Middlewares/isAuthenticated.js";
+import jwt, { decode, JwtPayload, TokenExpiredError } from "jsonwebtoken"
 import { IUSER, User } from "../Models/User.js";
 import { ApiError } from "../Utils/ApiError.js";
 import { ApiResponse } from "../Utils/ApiResponse.js";
@@ -71,6 +74,7 @@ export const registerUser = TryCatch(async (req, res) => {
 
 })
 
+// verify user By Otp
 export const verifyUserAndRegister = TryCatch(async (req, res) => {
     // Data From Req.body
     const { email, otp: enteredOtp } = req.body;
@@ -132,10 +136,7 @@ export const verifyUserAndRegister = TryCatch(async (req, res) => {
 
 })
 
-export const registerByGoogle = TryCatch(async (req, res) => {
-
-})
-
+// resendOtp
 export const resendOtp = TryCatch(async (req, res) => {
     const { email } = req.body;
     if (!email) {
@@ -184,6 +185,7 @@ export const resendOtp = TryCatch(async (req, res) => {
 
 })
 
+// LoginUser
 export const loginUser = TryCatch(async (req, res) => {
     const { email, password } = req.body;
 
@@ -255,4 +257,65 @@ export const loginUser = TryCatch(async (req, res) => {
 
 
 })
+
+// get current user
+export const getCurrentUser = TryCatch(async(req:AuthenticatedRequest, res, next) => {
+    const user = req.user
+    if(!user){
+        throw new ApiError(404, "User Not Found")
+    }
+
+    return res.status(200).json(
+        new ApiResponse("Current User Fetched Successfully ::", user, 200)
+    )
+})
+
+// Refresh Access Token By Refresh Token
+export const refresAcessToken = TryCatch(async(req , res , next) => {
+    const refreshTokenRequest = req.cookies.refreshToken
+    if(!refreshTokenRequest){
+        throw new ApiError(404, "Tokens Not Found! Login Again")
+    }
+
+    let decodedToken;
+
+    try {
+        decodedToken = jwt.verify(refreshTokenRequest, process.env.REFRESH_TOKEN_SECRET as string) as JwtPayload
+    } catch (error) {
+        if(error instanceof jwt.TokenExpiredError){
+            return next(new ApiError(401, "Refresh Token Expired! Login Again "))
+        }
+    }
+    
+    if(!decodedToken || !decodedToken.user){
+        throw new ApiError(403, "Unauthorized Token Expired! Login Again")
+    }
+
+    const user = await User.findById(decodedToken.user._id).select("-password -refreshToken") 
+    if(!user){
+        throw new ApiError(404, "User Not Found!!")
+    }
+
+    const accessToken = generateAccessToken(user)
+    const refreshToken = generateRefreshToken({ _id: user._id })
+
+    if(!accessToken || !refreshToken){
+        throw new ApiError(501, "Server ERR:: During Refresh Access Token")
+    }
+
+    const options = {
+        httpOnly : true,
+        secure : true,
+    }
+
+    return res.status(200)
+        .cookie("refreshToken", refreshToken, options)
+        .cookie("accessToken", accessToken, options)
+        .json(
+            new ApiResponse("Access Token Refreshed", "", 201 )
+        )
+})
+
+// get Any Desired User
+ 
 
