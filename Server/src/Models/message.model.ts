@@ -3,7 +3,7 @@ import mongoose, {Document, Schema, Types} from "mongoose";
 
 export interface IMessage extends Document{
     chatId : Types.ObjectId;
-    sender : String;
+    sender : Types.ObjectId;
     text?:string;
     image?:{
         url : string;
@@ -21,10 +21,11 @@ const messageSchema = new Schema<IMessage>({
     chatId : {
         type : Schema.Types.ObjectId,
         ref : "Chat",
-        required : true
+        required : true,
     },
     sender:{
-        type : String,
+        type : Schema.Types.ObjectId,
+        ref : "User",
         required : true,
     },
     text:String,
@@ -46,5 +47,7 @@ const messageSchema = new Schema<IMessage>({
         default : null
     }
 }, {timestamps:true})
+
+messageSchema.index({ chatId: 1, sender: 1, seen: 1 });
 
 export const Message = mongoose.model<IMessage>("Message", messageSchema)

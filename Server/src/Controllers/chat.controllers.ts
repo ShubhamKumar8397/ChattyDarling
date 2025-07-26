@@ -93,44 +93,126 @@ export const getAllChats = TryCatch(async (req: AuthenticatedRequest, res, next)
     })
 })
 
+// get all chats by aggregation
+export const allChatsByAggregation = TryCatch(async (req: AuthenticatedRequest, res, next) => {
+    const userId = req.user?._id;
+    if (!userId) throw new ApiError(404, "UserId Not Found!!")
+
+    const data = await Chat.aggregate([
+        {
+            $match: {
+                users: userId
+            }
+        },
+        {
+            $sort: {
+                updatedAt: -1
+            }
+        },
+        {
+            $addFields: {
+                receiverUserId: {
+                    $first: {
+                        $filter: {
+                            input: "$users",
+                            as: "user",
+                            cond: { $ne: ["$$user", userId] }
+                        }
+                    }
+                },
+                currentUserId: userId
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "receiverUserId",
+                foreignField: "_id",
+                as: "receiverUserData",
+                pipeline:[
+                    {
+                        $project:{
+                            name : 1,
+                            email: 1,
+                        }
+                    }
+                ]
+
+            }
+        },
+        {
+            $unwind: "$receiverUserData"
+        },
+
+        {
+            $lookup: {
+                from: "messages",
+                let: {
+                    pappu: "$_id",   //$_id is the id of Chat it can be named Any thing pappu In Which i Aggreagte // $chatId  is the chatId in message
+                    currentUserId: "$currentUserId"
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ["$chatId", "$$pappu"] },
+                                    { $ne: ["$sender", "$$currentUserId"] },
+                                    { $eq: ["$seen", false] }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        $count: "unseenCount"
+                    }
+                ],
+                as: "unseenMessages"
+            }
+        },
+        {
+            $unwind: {
+                path: "$unseenMessages",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $addFields: {
+                unseenCount: { $ifNull: ["$unseenMessages.unseenCount", 0] }
+            }
+        }
+    ])
+
+    return res.json({
+        data
+    })
+
+})
+
+
 // sendMessage 
 export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next) => {
     const senderId = req.user?._id;
     const { chatId, text } = req.body
     const imageFile = req?.file
 
-    if (!senderId) {
-        throw new ApiError(401, "Unauthorized")
-    }
+    if (!senderId) throw new ApiError(401, "Unauthorized")
+    if (!chatId) throw new ApiError(401, "Chat Id Required");
+    if (!text && !imageFile) throw new ApiError(401, "Either Text Or Image Not Found");
 
-    if (!chatId) {
-        throw new ApiError(401, "Chat Id Required")
-    }
-
-    if (!text && !imageFile) {
-        throw new ApiError(401, "Either Text Or Image Not Found")
-    }
-
+    // find room in which message send
     const chat = await Chat.findById(chatId);
-    if (!chat) {
-        throw new ApiError(404, "Chat Not Found")
-    }
+    if (!chat) throw new ApiError(404, "Chat Not Found")
 
     // to check ki sender apne chat me hi message kr rha hai na
     const isUserInChat = chat.users.some((userId) => userId.toString() === senderId.toString())
-
-    if (!isUserInChat) {
-        throw new ApiError(403, "You Are Not Participant Of This Chat")
-    }
+    if (!isUserInChat) throw new ApiError(403, "You Are Not Participant Of This Chat");
 
     // loggedin user ke equal id nhi hai to wo receiver user hi hoga
     const otherUserId = chat.users.find((userId) => userId.toString() !== senderId.toString())
-    if (!otherUserId) {
-        throw new ApiError(404, "No Other User")
-    }
+    if (!otherUserId) throw new ApiError(404, "No Other User");
 
     // Socket Setuppppppp later
-
 
     let messageData: any = {
         chatId: chatId,
@@ -156,8 +238,6 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
     const savedMessage = await message.save();
 
     const latestMessageText = imageFile ? "📷 Image" : text
-
-    console.log(senderId)
 
     await Chat.findByIdAndUpdate(chatId, {
         $set: {

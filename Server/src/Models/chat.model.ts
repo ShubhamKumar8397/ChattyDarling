@@ -6,7 +6,7 @@ export interface IChat extends Document {
     users: Types.ObjectId[];
     latestMessage: {
         text: string,
-        sender: string,
+        sender: Types.ObjectId,
     };
     createdAt: Date;
     updatedAt: Date;
@@ -33,5 +33,7 @@ const chatSchema = new Schema<IChat>({
     },
 
 }, { timestamps: true })
+
+chatSchema.index({users: 1, updatedAt: -1})
 
 export const Chat = mongoose.model<IChat>("Chat", chatSchema)
