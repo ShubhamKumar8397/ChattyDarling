@@ -22,6 +22,8 @@ GMAIL_USERNAME = "@gmail.com"
 GMAIL_PASSWORD = ''
 
 
+checking why contribution not count
+
 
 
        // {
