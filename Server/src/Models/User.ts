@@ -1,23 +1,18 @@
 import mongoose, { Schema, Types } from "mongoose";
 
-export enum AuthProvider {
-    LOCAL = 'local',
-    GOOGLE = 'google',
-}
 
-export type ImageSource = 'local' | 'google';
 
 export interface IUSER extends Document {
     _id : Types.ObjectId
     name: string;
     email: string;
     password : string;
-    authProvider: AuthProvider;
+    authProvider: "local" | "google";
     refreshToken: string;
     profileImage?: {
         id: string
         url: string
-        source: ImageSource
+        source: 'local' | 'google'
     }
 
 }
@@ -53,9 +48,9 @@ const userSchema = new Schema<IUSER>({
     },
     authProvider: {
         type: String,
-        enum: Object.values(AuthProvider),
+        enum: ['local','google'],
         required: true,
-        default: AuthProvider.LOCAL
+        default: "local"
     },
     profileImage: {
         type : profileImageSchema,

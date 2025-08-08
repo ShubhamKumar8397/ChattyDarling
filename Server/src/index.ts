@@ -25,9 +25,8 @@ connectDB()
         if (redisConnection) {
             console.log("Redis Connection Established :::: Successfully")
         }
-
         return connectRabbitMQ();
-        
+
     })
     .then(() => {
         app.listen(PORT, () => {

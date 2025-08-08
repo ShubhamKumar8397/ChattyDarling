@@ -8,10 +8,10 @@ export const errorMiddleware = (
     res: Response,
     next: NextFunction
 ) => {
-  const statusCode = err.statusCode
+  const statusCode = err.statusCode || 500
   const message = err.message
 
-  return res.json({
+  return res.status(statusCode).json({
     success : false,
     message,
     statusCode,

@@ -45,6 +45,8 @@ export const connectRabbitMQ = async () => {
 }
 
 
+// if we want to scale our mail service then this is the main Backend part
+
 export const publishToQueue = async (queueName: string, message: any) => {
     if (!channel) {
         console.log("Rabbit MQ Channel Not Initialized")

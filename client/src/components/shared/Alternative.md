@@ -1,10 +1,16 @@
+
+# By Map The Message Send And Render
+### Best For High Scalable App
+
+
+
+```
 "use client"
 import { RotatingLoader } from '@/components/shared/Loader'
 import { ChatSidebar } from '@/components/shared/ChatSidebar'
 import { useAppData } from '@/context/AppContext'
 import { useRouter } from 'next/navigation'
-
-import React, { Suspense, useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useGetAllChatsQuery, useGetAllMessagesQuery } from '@/tanstackQueries/chatQueries'
 import ChatHeader from '@/components/shared/ChatHeader'
 import ChatMessages from '@/components/shared/ChatMessages'
@@ -12,25 +18,51 @@ import MessageInput from '@/components/shared/MessageInput'
 import { sendMessageEndpoint } from '@/endpointsApi/chat.endpoint'
 import { toast } from 'react-toastify'
 
-
-const page = () => {
+const Page = () => {
   const router = useRouter()
-  const { user: loggedinUser, isAuth, loading, logoutUser } = useAppData();
+  const { user: loggedinUser, isAuth, loading } = useAppData();
   const { data, isLoading: getChatsLoading } = useGetAllChatsQuery()
 
-  const [openSearchUser, setOpenSearchUser] = useState<boolean>(false)
+  const [openSearchUser, setOpenSearchUser] = useState(false)
   const [selectedChat, setSelectedChat] = useState<any>()
-  const [messageInput, setMessageInput] = useState<string>("")
+  const [messageInput, setMessageInput] = useState("")
 
-  const { data: messagesData, isLoading: getMessagesLoading, } = useGetAllMessagesQuery({ chatId: selectedChat?._id })
+  // 🚀 Store messages in Map
+  const [messagesMap, setMessagesMap] = useState<Map<string, any>>(new Map())
 
-  const [messages, setMessages] = useState(messagesData?.data?.allMessage)
+  const { data: messagesData, isLoading: getMessagesLoading } =
+    useGetAllMessagesQuery({ chatId: selectedChat?._id })
+
+  // Convert Map → Array for rendering
+  const uniqueMessages = useMemo(
+    () => [...messagesMap.values()],
+    [messagesMap]
+  )
+
+  // Add message safely
+  const addMessage = (msg: any) => {
+    setMessagesMap(prev => {
+      if (prev.has(msg._id)) return prev // skip duplicates
+      const newMap = new Map(prev)
+      newMap.set(msg._id, msg)
+      return newMap
+    })
+  }
+
+  // Load initial messages when chat changes
+  useEffect(() => {
+    if (messagesData?.data?.allMessage) {
+      const newMap = new Map()
+      messagesData.data.allMessage.forEach((msg: any) => {
+        newMap.set(msg._id, msg)
+      })
+      setMessagesMap(newMap)
+    }
+  }, [messagesData])
 
   const handleMessageSend = async (e: any, imageFile?: File) => {
     e.preventDefault();
     if (!messageInput.trim() && !imageFile && !selectedChat) return
-
-    // socket work
 
     try {
       const formData = new FormData();
@@ -44,20 +76,12 @@ const page = () => {
       }
 
       const response = await sendMessageEndpoint(formData);
-      setMessages((prev: any) => {
-        const currentMessages = prev || []
-        const messageExists = currentMessages.some((msg: any) => msg._id === response.message._id)
-        if (!messageExists) {
-          return [...currentMessages, response.message]
-        }
-        return currentMessages;
-      })
+      addMessage(response.message) // 🚀 Add directly to Map
 
       setMessageInput("")
     } catch (error: any) {
       toast.error(error.message)
     }
-
   }
 
   useEffect(() => {
@@ -66,32 +90,24 @@ const page = () => {
     }
   }, [isAuth, loading])
 
-  useEffect(() => {
-    setMessages(messagesData?.data?.allMessage)
-  }, [messagesData])
-
-  if (loading || getChatsLoading) return <RotatingLoader className="bg-black min-h-screen text-white flex justify-center items-center" classNameLoader="w-[150px] h-[150px] animate-spin text-white" />
+  if (loading || getChatsLoading) {
+    return (
+      <RotatingLoader
+        className="bg-black min-h-screen text-white flex justify-center items-center"
+        classNameLoader="w-[150px] h-[150px] animate-spin text-white"
+      />
+    )
+  }
 
   return (
-    <div className='min-h-screen flex bg-slate-900' >
-      <div>
-        <ChatSidebar
-          chats={data}
-          openSearchUser={openSearchUser}
-          setOpenSearchUser={setOpenSearchUser}
-          selectedChat={selectedChat}
-          setSelectedChat={setSelectedChat}
-        />
-      </div>
-      <div className='flex-1 flex flex-col  px-5'>
-        <ChatHeader
-          selectedChat={selectedChat}
-        />
+    <div className='min-h-screen flex bg-slate-900'>
+      
+      ........ -- Same AS The /chat/page.tsx
 
         <ChatMessages
           selectedChat={selectedChat}
           loggedInUser={loggedinUser}
-          messages={messages}
+          messages={uniqueMessages} // 🚀 Already deduped
           getMessagesLoading={getMessagesLoading}
         />
 
@@ -106,4 +122,7 @@ const page = () => {
   )
 }
 
-export default page
+export default Page
+
+
+```

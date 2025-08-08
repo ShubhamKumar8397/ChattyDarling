@@ -1,4 +1,4 @@
-import {Response,  NextFunction } from "express";
+import {Response,  NextFunction, response } from "express";
 import { redisClient } from "../index.js";
 import { publishToQueue } from "../MailService/mail.service.js";
 import { AuthenticatedRequest } from "../Middlewares/isAuthenticated.js";
@@ -51,7 +51,6 @@ export const registerUser = TryCatch(async (req, res) => {
         name: data.name,
         email: data.email,
         password: hashedPassword,
-
     })
     await redisClient.expire(userKey, 60 * 20)
 
@@ -62,11 +61,11 @@ export const registerUser = TryCatch(async (req, res) => {
     }
 
     // send otp to the given email
-    await publishToQueue("send-otp", message)
+    // await publishToQueue("send-otp", message)
 
     // set ratelimiting on otp
     await redisClient.set(rateLimitKey, 60)
-    await redisClient.expire(rateLimitKey, 60)
+    await redisClient.expire(rateLimitKey, 30)
 
     return res.status(200).json(
         new ApiResponse("Partial Register Complete", " ", 200)
@@ -155,7 +154,7 @@ export const resendOtp = TryCatch(async (req, res) => {
     const userKey = `user:${email}`
     const checkUserAvailable = await redisClient.hGetAll(userKey)
     if (Object.keys(checkUserAvailable).length === 0) {
-        throw new ApiError(404, "Please Register Again ! For A lot of Time You On This")
+        throw new ApiError(404, "Please Register Again")
     }
     await redisClient.expire(userKey, 60 * 20);
 
@@ -173,11 +172,11 @@ export const resendOtp = TryCatch(async (req, res) => {
     }
 
     // send otp to the given email
-    await publishToQueue("send-otp", message)
+    // await publishToQueue("send-otp", message)
 
     // set ratelimiting on otp
     await redisClient.set(rateLimitKey, 60)
-    await redisClient.expire(rateLimitKey, 60)
+    await redisClient.expire(rateLimitKey, 30)
 
     return res.status(200).json(
         new ApiResponse("Resend OTP Successfully", "", 200)
@@ -188,7 +187,6 @@ export const resendOtp = TryCatch(async (req, res) => {
 // LoginUser
 export const loginUser = TryCatch(async (req, res) => {
     const { email, password } = req.body;
-
     if (!email || !password) {
         throw new ApiError(404, "Fill Data Correctly")
     }
@@ -243,7 +241,8 @@ export const loginUser = TryCatch(async (req, res) => {
 
     const options = {
         httpOnly: true,
-        secure: true
+        secure: false,
+        maxAge:  5 * 24 * 60 * 60 * 1000  // 5days 
     }
 
     await redisClient.del(loginTryCount)
@@ -251,6 +250,9 @@ export const loginUser = TryCatch(async (req, res) => {
     return res.status(200)
         .cookie("refreshToken", refreshToken, options)
         .cookie("accessToken", accessToken, options)
+        .cookie("hasToken", "true", {
+            maxAge: 5 * 24 * 60 * 60 * 1000
+        })
         .json(
             new ApiResponse("Login User successfully", updatedUser, 200)
         )
@@ -314,6 +316,22 @@ export const refresAcessToken = TryCatch(async(req , res , next) => {
         .json(
             new ApiResponse("Access Token Refreshed", "", 201 )
         )
+})
+
+// logout user
+export const logoutUser = TryCatch(async(req, res, next) => {
+    return res.status(200)
+            .clearCookie("accessToken")
+            .clearCookie("refreshToken")
+            .clearCookie("hasToken")
+            .json(new ApiResponse("Logout Successful", " ", 200))
+})
+
+export const getAllUsers = TryCatch(async(req, res, next) => {
+    const users = await User.find().select("-password -refreshToken");
+    return res.status(200).json(
+        new ApiResponse("All Users Fetched successfully", users, 200)
+    )
 })
 
 // get Any Desired User

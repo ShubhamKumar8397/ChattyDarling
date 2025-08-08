@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import QueryProvider from "@/tanstackQueries/tanstackProvider";
+import { ToastContainer } from "react-toastify";
+import { AppProvider } from "@/context/AppContext";
 
 export const metadata: Metadata = {
   title: "Chatty Darling",
@@ -14,7 +17,25 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
+        <AppProvider>
+          <QueryProvider>
+            {children}
+          </QueryProvider>
+        </AppProvider>
+
+        <ToastContainer
+          position="bottom-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick={false}
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        // transition={Bounce}
+        />
       </body>
     </html>
   );

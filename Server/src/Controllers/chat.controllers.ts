@@ -6,6 +6,9 @@ import { ApiResponse } from "../Utils/ApiResponse.js";
 import { TryCatch } from "../Utils/TryCatch.js";
 import { Message } from "../Models/message.model.js";
 import { User } from "../Models/User.js";
+import { response } from "express";
+import { uploadImageOnCloudinary } from "../Utils/cloudinary.js";
+
 
 // create new chat
 export const createNewChat = TryCatch(async (req: AuthenticatedRequest, res, next) => {
@@ -29,7 +32,7 @@ export const createNewChat = TryCatch(async (req: AuthenticatedRequest, res, nex
         return res.status(200).json(
             new ApiResponse(
                 "Chat Already Exists",
-                { chatId: existingChat._id },
+                existingChat,
                 200
             )
         )
@@ -99,19 +102,23 @@ export const allChatsByAggregation = TryCatch(async (req: AuthenticatedRequest, 
     if (!userId) throw new ApiError(404, "UserId Not Found!!")
 
     const data = await Chat.aggregate([
+        // wo sare chat jisme users array me ek userId ye bhi ho
         {
             $match: {
                 users: userId
             }
         },
+        // updated chat jo recent update hui ho
         {
             $sort: {
                 updatedAt: -1
             }
         },
+        // jo users array hai usme me se another user nikalo
         {
             $addFields: {
                 receiverUserId: {
+                    // filter give a array so usme se first element
                     $first: {
                         $filter: {
                             input: "$users",
@@ -123,16 +130,17 @@ export const allChatsByAggregation = TryCatch(async (req: AuthenticatedRequest, 
                 currentUserId: userId
             }
         },
+        // receiver ka userdata With lookup
         {
             $lookup: {
                 from: "users",
                 localField: "receiverUserId",
                 foreignField: "_id",
                 as: "receiverUserData",
-                pipeline:[
+                pipeline: [
                     {
-                        $project:{
-                            name : 1,
+                        $project: {
+                            name: 1,
                             email: 1,
                         }
                     }
@@ -140,15 +148,16 @@ export const allChatsByAggregation = TryCatch(async (req: AuthenticatedRequest, 
 
             }
         },
+        // array to object conversion
         {
             $unwind: "$receiverUserData"
         },
-
+        // lookup in messages to get unseen messages
         {
             $lookup: {
                 from: "messages",
                 let: {
-                    pappu: "$_id",   //$_id is the id of Chat it can be named Any thing pappu In Which i Aggreagte // $chatId  is the chatId in message
+                    chatId: "$_id",   //$_id is the id of Chat it can be named Any thing pappu In Which i Aggreagte // $chatId  is the chatId in message
                     currentUserId: "$currentUserId"
                 },
                 pipeline: [
@@ -156,8 +165,8 @@ export const allChatsByAggregation = TryCatch(async (req: AuthenticatedRequest, 
                         $match: {
                             $expr: {
                                 $and: [
-                                    { $eq: ["$chatId", "$$pappu"] },
-                                    { $ne: ["$sender", "$$currentUserId"] },
+                                    { $eq: ["$chatId", "$$chatId"] },   //messages me - chatId , hai aur hum Chats me aggreagate kre rhe hai abhi usme hai _id so let check
+                                    { $ne: ["$sender", "$$currentUserId"] }, //agar sender me hi hu to mere liye unseen kaise
                                     { $eq: ["$seen", false] }
                                 ]
                             }
@@ -183,18 +192,18 @@ export const allChatsByAggregation = TryCatch(async (req: AuthenticatedRequest, 
         }
     ])
 
-    return res.json({
+    return res.status(200).json({
         data
     })
 
 })
-
 
 // sendMessage 
 export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next) => {
     const senderId = req.user?._id;
     const { chatId, text } = req.body
     const imageFile = req?.file
+    console.log(imageFile)
 
     if (!senderId) throw new ApiError(401, "Unauthorized")
     if (!chatId) throw new ApiError(401, "Chat Id Required");
@@ -214,6 +223,13 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
 
     // Socket Setuppppppp later
 
+    // cloudinary setup
+
+    let uploadResults:any;
+    if(imageFile){
+        uploadResults = await uploadImageOnCloudinary(imageFile.path)
+    }
+
     let messageData: any = {
         chatId: chatId,
         sender: senderId,
@@ -223,8 +239,8 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
 
     if (imageFile) {
         messageData.image = {
-            url: imageFile.path,
-            publicId: imageFile.filename,
+            url: uploadResults.url,
+            publicId:uploadResults.public_id ,
         }
         messageData.messageType = "image"
         messageData.text = text || ""
@@ -263,4 +279,77 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
 
 })
 
+
+// get All Messages Of A User
+
+export const getAllMessage = TryCatch(async (req: AuthenticatedRequest, res, next) => {
+    const { chatId } = req.params
+    if(!chatId) throw new ApiError(404, "Dont Get chat Id")
+    
+    // check The chat is Available or not
+    const chat = await Chat.findById(chatId);
+    if(!chat) throw new ApiError(404, "Chat Is Invalid")
+    
+    // check the authetic user is available in The chat or do unauthorized work
+    const isUserInChat = chat?.users.some((userId) => userId.toString() === req?.user?._id.toString())
+    if(!isUserInChat) throw new ApiError(401, "Unauthorized way of Sending req")
+
+    // agar user of select kra hai tabhi to request aayi so we do all the messages seen
+    // const messageMarkAsSeen = await Message.find({
+    //     chatId : chatId,
+    //     sender:{$ne : req.user?._id},
+    //     seen: false,
+    // })
+
+    await Message.updateMany({
+        // code for docuement fidn which follow these
+        chatId: chatId,
+        sender:{$ne : req?.user?._id},
+        seen:false,
+    },
+    {
+        // what you wan to update in the code
+        seen: true,
+        seenAt: Date.now()
+    }
+)
+
+    // get the all messages of this chat by aggregation
+    const data =await Chat.aggregate([
+        {
+            $match: {
+               _id: new mongoose.Types.ObjectId(chatId)
+            }
+        },
+        {
+            $sort:{
+                updatedAt : -1
+            }
+        },
+        {
+            $lookup:{
+                from : "messages",
+                localField: "_id",
+                foreignField: "chatId",
+                as:"allMessages"
+            }
+        },
+        {
+            $addFields:{
+                allMessage: "$allMessages"
+            }
+        },
+        {
+            $project:{
+                _id : 1,
+                allMessage : 1
+            }
+        }
+        
+    ])
+    
+   return res.status(200).json({
+    data: data[0]
+   })
+})
 
