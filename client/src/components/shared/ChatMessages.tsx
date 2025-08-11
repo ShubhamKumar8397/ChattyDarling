@@ -52,8 +52,8 @@ const ChatMessages = ({ selectedChat = "", messages = [], loggedInUser, getMessa
                                             </div>
 
                                         )
-                                        :
-                                        message.text && <p>{message.text}</p>
+                                            :
+                                            message.text && <p>{message.text}</p>
                                     }
 
                                     <div className={`flex items-center gap-1 text-xs text-gray-300 
@@ -77,7 +77,7 @@ const ChatMessages = ({ selectedChat = "", messages = [], loggedInUser, getMessa
                                                         (
                                                             <Check className='text-gray-500 h-3 w-3' />
                                                         )
-                                                }
+                                                }  
                                             </div>
                                         }
                                     </div>

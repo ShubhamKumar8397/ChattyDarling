@@ -5,7 +5,7 @@ import { CornerDownLeft, CornerDownRight, LogOut, MessageCircle, Minus, Plus, Se
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
 
-export const ChatSidebar = ({ chats, openSearchUser, setOpenSearchUser, selectedChat, setSelectedChat }: any) => {
+export const ChatSidebar = ({ chats, openSearchUser, setOpenSearchUser, selectedChat, setSelectedChat, onlineUsers }: any) => {
 
   const [searchText, setSearchText] = useState('')
 
@@ -70,8 +70,9 @@ export const ChatSidebar = ({ chats, openSearchUser, setOpenSearchUser, selected
                       key={user._id}
                       onClick={() => handleNewChat({ userId: user._id })}
                     >
-                      <div>
+                      <div className="relative" >
                         <User className="h-10 w-10 p-2 rounded-full border-1 border-white" />
+                        
                       </div>
                       <div className="flex flex-col justify-start ">
                         <p className="text-[16px] font-medium " >{user.name}</p>
@@ -105,7 +106,18 @@ export const ChatSidebar = ({ chats, openSearchUser, setOpenSearchUser, selected
                     key={chat._id}
                   >
                     <div className="w-full flex gap-2 justify-start items-start" >
-                      <User className="h-10 w-10 p-2 rounded-full border-1 border-white" />
+                      <div className="relative">
+                        <User className="h-10 w-10 p-2 rounded-full border-1 border-white" />
+                        {
+                          onlineUsers.includes(chat.receiverUserId) && (
+                            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full
+                              bg-green-500 border-2 border-gray-500
+                            " >
+
+                            </span>
+                          )
+                        }
+                      </div>
                       <div>
                         <div className="flex justify-between w-full">
                           <p className="text-[16px] font-medium " >{chat.receiverUserData.name}</p>

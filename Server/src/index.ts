@@ -1,4 +1,5 @@
-import { app } from "./app.js"
+import { app, server } from "./socket/socket.js";
+import './app.js'
 import dotenv from 'dotenv'
 import { createClient } from "redis";
 
@@ -29,7 +30,7 @@ connectDB()
 
     })
     .then(() => {
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server Is Listening At PORT ${PORT}`)
         })
     })

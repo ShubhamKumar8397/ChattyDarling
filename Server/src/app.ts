@@ -1,17 +1,11 @@
 import express from "express";
 import cookieParser from "cookie-parser";
-import cors from "cors"
 import { errorMiddleware } from "./Middlewares/error.middleware.js";
+import { app } from "./socket/socket.js";
 
-
-const app = express();
 
 app.use(express.json())
 app.use(cookieParser())
-app.use(cors({
-    origin : "http://localhost:3000",
-    credentials: true,
-}))
 
 // All Routes Declared Here
 
@@ -23,4 +17,3 @@ app.use("/api/v1/chat", chatRouter)
 
 // error Middleware always put in end
 app.use(errorMiddleware)
-export {app}

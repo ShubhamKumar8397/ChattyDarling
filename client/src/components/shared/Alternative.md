@@ -3,21 +3,8 @@
 ### Best For High Scalable App
 
 
-
+<pre>
 ```
-"use client"
-import { RotatingLoader } from '@/components/shared/Loader'
-import { ChatSidebar } from '@/components/shared/ChatSidebar'
-import { useAppData } from '@/context/AppContext'
-import { useRouter } from 'next/navigation'
-import React, { useEffect, useState, useMemo } from 'react'
-import { useGetAllChatsQuery, useGetAllMessagesQuery } from '@/tanstackQueries/chatQueries'
-import ChatHeader from '@/components/shared/ChatHeader'
-import ChatMessages from '@/components/shared/ChatMessages'
-import MessageInput from '@/components/shared/MessageInput'
-import { sendMessageEndpoint } from '@/endpointsApi/chat.endpoint'
-import { toast } from 'react-toastify'
-
 const Page = () => {
   const router = useRouter()
   const { user: loggedinUser, isAuth, loading } = useAppData();
@@ -126,3 +113,4 @@ export default Page
 
 
 ```
+</pre>

@@ -11,7 +11,7 @@ export interface IMessage extends Document{
     }
     messageType : "text" | "image"
     seen : boolean;
-    seenAt?: Date;
+    seenAt?: Date | undefined;
     createdAt: Date;
     updateAt : Date;
 }

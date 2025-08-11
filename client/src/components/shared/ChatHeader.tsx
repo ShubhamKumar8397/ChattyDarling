@@ -1,7 +1,7 @@
 import { MessageCircle, UserCircle } from 'lucide-react'
 import React from 'react'
 
-const ChatHeader = ({ selectedChat }: any) => {
+const ChatHeader = ({ selectedChat, onlineUsers }: any) => {
   return (
     <div className='my-3 bg-gray-800 rounded-lg border border-gray-700 p-3'>
       <div className='flex items-center gap-4'>
@@ -11,6 +11,17 @@ const ChatHeader = ({ selectedChat }: any) => {
               <div className='relative'>
                 <div className='w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center'>
                   <UserCircle className='w-8 h-8 text-gray-300' />
+                  {
+                    onlineUsers.includes(selectedChat.receiverUserId) && (
+                      <div className='absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full
+                              bg-green-500 border-2 border-gray-500'>
+                        <span className='absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full
+                              bg-green-500 border-2 border-gray-500 animate-ping' >
+
+                      </span>
+                      </div>
+                    )
+                  }
                 </div>
                 {/* online User Interface define here */}
               </div>

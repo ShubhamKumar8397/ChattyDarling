@@ -3,6 +3,7 @@ import "./globals.css";
 import QueryProvider from "@/tanstackQueries/tanstackProvider";
 import { ToastContainer } from "react-toastify";
 import { AppProvider } from "@/context/AppContext";
+import { SocketProvider } from "@/context/SocketContext";
 
 export const metadata: Metadata = {
   title: "Chatty Darling",
@@ -18,9 +19,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AppProvider>
+          <SocketProvider>
           <QueryProvider>
             {children}
           </QueryProvider>
+          </SocketProvider>
         </AppProvider>
 
         <ToastContainer

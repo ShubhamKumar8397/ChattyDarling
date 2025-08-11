@@ -6,8 +6,8 @@ import { ApiResponse } from "../Utils/ApiResponse.js";
 import { TryCatch } from "../Utils/TryCatch.js";
 import { Message } from "../Models/message.model.js";
 import { User } from "../Models/User.js";
-import { response } from "express";
 import { uploadImageOnCloudinary } from "../Utils/cloudinary.js";
+import { getReceiverSocketId, io } from "../socket/socket.js";
 
 
 // create new chat
@@ -221,7 +221,22 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
     const otherUserId = chat.users.find((userId) => userId.toString() !== senderId.toString())
     if (!otherUserId) throw new ApiError(404, "No Other User");
 
-    // Socket Setuppppppp later
+    // Socket Setuppppppp later =========================================================
+    const receiverSocketId = getReceiverSocketId(otherUserId?.toString())
+    let isReceiverInChatRoom = false;
+
+    if(receiverSocketId){
+        const receiverSocket = io.sockets.sockets.get(receiverSocketId)
+        if(receiverSocket && receiverSocket.rooms.has(chatId)){
+            isReceiverInChatRoom = true;
+        }
+    }
+
+    // console.log("ioSockets", io.sockets)
+    // console.log("io.sockets.sockets", io.sockets.sockets)
+
+
+    
 
     // cloudinary setup
 
@@ -233,8 +248,8 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
     let messageData: any = {
         chatId: chatId,
         sender: senderId,
-        seen: false,
-        seenAt: undefined,
+        seen: isReceiverInChatRoom,
+        seenAt: isReceiverInChatRoom ? new Date() : undefined,
     };
 
     if (imageFile) {
@@ -270,7 +285,25 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
         }
     )
 
-    // emits to socket
+    // emits to socket socket ===================================================================
+
+    io.to(chatId).emit("newMessage", savedMessage)
+    if(receiverSocketId){
+        io.to(receiverSocketId).emit("newMessage", savedMessage)
+    }
+
+    const senderSocketId = getReceiverSocketId(senderId.toString())
+    if(senderSocketId){
+        io.to(senderSocketId).emit("newMessage")
+    }
+
+    if(isReceiverInChatRoom && senderSocketId){
+        io.to(senderSocketId).emit("messagesSeen", {
+            chatId: chatId,
+            seenBy: otherUserId,
+            messageIds: [savedMessage._id]
+        })
+    }
 
     res.status(201).json({
         message: savedMessage,
@@ -279,9 +312,7 @@ export const sendMessage = TryCatch(async (req: AuthenticatedRequest, res, next)
 
 })
 
-
 // get All Messages Of A User
-
 export const getAllMessage = TryCatch(async (req: AuthenticatedRequest, res, next) => {
     const { chatId } = req.params
     if(!chatId) throw new ApiError(404, "Dont Get chat Id")
@@ -294,12 +325,15 @@ export const getAllMessage = TryCatch(async (req: AuthenticatedRequest, res, nex
     const isUserInChat = chat?.users.some((userId) => userId.toString() === req?.user?._id.toString())
     if(!isUserInChat) throw new ApiError(401, "Unauthorized way of Sending req")
 
+    // get userId of Receiver
+    const receiverUserId = chat?.users.filter((userId) => userId.toString() !== req?.user?._id.toString())
+
     // agar user of select kra hai tabhi to request aayi so we do all the messages seen
-    // const messageMarkAsSeen = await Message.find({
-    //     chatId : chatId,
-    //     sender:{$ne : req.user?._id},
-    //     seen: false,
-    // })
+    const messageMarkAsSeen = await Message.find({
+        chatId : chatId,
+        sender:{$ne : req.user?._id},
+        seen: false,
+    })
 
     await Message.updateMany({
         // code for docuement fidn which follow these
@@ -347,9 +381,26 @@ export const getAllMessage = TryCatch(async (req: AuthenticatedRequest, res, nex
         }
         
     ])
+
+    // sockeet implementation
+
+    if(messageMarkAsSeen.length > 0){
+        const otherUserSocketId = getReceiverSocketId(receiverUserId.toString())
+        if(otherUserSocketId){
+            io.to(otherUserSocketId).emit("messagesSeen",{
+            chatId: chatId,
+            seenBy: req?.user?._id,
+            messageIds: messageMarkAsSeen.map((msg) => msg._id)
+        })
+        }
+    }
+
+
     
    return res.status(200).json({
     data: data[0]
    })
 })
+
+
 
